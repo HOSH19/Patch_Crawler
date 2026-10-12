@@ -115,17 +115,18 @@ export default function Home() {
         </label>
         <select
           id="product"
+          className="poc-select"
           value={product}
           onChange={(e) => setProduct(e.target.value as ProductId)}
           disabled={loading}
           style={{
             width: "100%",
             appearance: "none",
-            background: "var(--bg-2)",
+            backgroundColor: "var(--bg-2)",
             color: "var(--ink)",
             border: "1px solid var(--line)",
             borderRadius: 10,
-            padding: "0.85rem 1rem",
+            padding: "0.85rem 2.5rem 0.85rem 1rem",
             fontSize: "1rem",
             fontFamily: "inherit",
             outline: "none",
@@ -207,10 +208,10 @@ export default function Home() {
             </p>
 
             <dl
+              className="poc-fields"
               style={{
                 margin: "0.85rem 0 0",
                 display: "grid",
-                gridTemplateColumns: "8.5rem 1fr",
                 rowGap: "0.55rem",
                 columnGap: "0.75rem",
                 fontSize: "0.95rem",
