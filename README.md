@@ -1,6 +1,6 @@
 # AI Patch Crawler
 
-PoC: pick **VS Code** or **Chrome**, get **name**, **version**, **end-of-shelf** (or Unknown), and a **copyable Windows x64 download URL**. An LLM extracts those fields from the official vendor page (hallucinations rejected).
+PoC: pick **Node.js LTS**, **Python**, or **Chrome**, get **name**, **version**, **end-of-shelf** (or Unknown), and a **copyable Windows x64 download URL**. An LLM extracts those fields from the official vendor page, winget installer manifests, and [endoflife.date](https://endoflife.date) (hallucinations rejected).
 
 ## Run
 

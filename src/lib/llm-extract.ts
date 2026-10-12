@@ -30,9 +30,11 @@ Return ONLY valid JSON:
 Rules:
 - Choose the latest stable Windows x64 installer for the product.
 - Prefer direct .exe / .msi / offline installer / CDN links from the official vendor.
-- "name" is the human-facing product name (e.g. "Visual Studio Code", "Google Chrome").
-- "version" is the release version string as it appears in the excerpt (e.g. "1.141.0", "155.0.8059.40").
+- "name" is the human-facing product name (e.g. "Node.js", "Python", "Google Chrome").
+- "version" is the release version string as it appears in the excerpt (e.g. "24.20.0", "3.14.7", "155.0.8059.40").
 - "endOfShelf" is the end-of-support / EOL / shelf-life end date for this release when the excerpt states one. Prefer ISO YYYY-MM-DD. If not present, return null — NEVER invent or guess dates.
+- If the excerpt has an END-OF-LIFE DATES section, find the "cycle X: eol DATE" line whose cycle matches the chosen version and use that DATE verbatim. Take name/version/url only from the other sections.
+- Release dates (e.g. "ReleaseDate:") are NOT end-of-shelf dates.
 - The URL MUST appear verbatim as a substring in the provided excerpt.
 - The version SHOULD appear as a substring in the excerpt.
 - Prefer endOfShelf values that appear in the excerpt.

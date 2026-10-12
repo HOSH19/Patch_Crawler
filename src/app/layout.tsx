@@ -17,7 +17,7 @@ const body = DM_Sans({
 export const metadata: Metadata = {
   title: "AI Patch Crawler",
   description:
-    "PoC: find the latest stable Windows x64 download URL for VS Code or Chrome via LLM extraction.",
+    "PoC: find the latest stable Windows x64 download URL for Node.js, Python, or Chrome via LLM extraction.",
 };
 
 export default function RootLayout({

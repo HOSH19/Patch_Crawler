@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-type ProductId = "vscode" | "chrome";
+type ProductId = "nodejs" | "python" | "chrome";
 
 type ApiSuccess = {
   name: string;
@@ -19,7 +19,7 @@ type ApiError = {
 };
 
 export default function Home() {
-  const [product, setProduct] = useState<ProductId>("vscode");
+  const [product, setProduct] = useState<ProductId>("nodejs");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ApiSuccess | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -131,7 +131,8 @@ export default function Home() {
             outline: "none",
           }}
         >
-          <option value="vscode">VS Code</option>
+          <option value="nodejs">Node.js LTS</option>
+          <option value="python">Python</option>
           <option value="chrome">Chrome</option>
         </select>
 

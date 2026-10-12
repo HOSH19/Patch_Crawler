@@ -35,6 +35,13 @@ function validateEndOfShelf(
   const trimmed = value.trim();
   if (!trimmed) return null;
 
+  if (excerpt.includes(`ReleaseDate: ${trimmed}`)) {
+    console.warn(
+      `[validate] endOfShelf "${trimmed}" is a release date; treating as Unknown`,
+    );
+    return null;
+  }
+
   // Prefer exact substring presence in excerpt
   if (excerpt.includes(trimmed)) {
     if (ISO_DATE_RE.test(trimmed)) return trimmed;

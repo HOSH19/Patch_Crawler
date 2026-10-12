@@ -28,17 +28,17 @@ function validateExtraction(candidate, excerpt, productLabel) {
 }
 
 const excerpt =
-  'Visual Studio Code 1.141.0 <a href="https://vscode.download.prss.microsoft.com/dbazure/download/stable/abc/VSCodeUserSetup-x64-1.141.0.exe">here</a>';
+  "PackageVersion: 24.20.0 InstallerUrl: https://nodejs.org/dist/v24.20.0/node-v24.20.0-x64.msi";
 
 assert.equal(
   validateExtraction(
     {
-      name: "Visual Studio Code",
-      version: "1.141.0",
-      url: "https://vscode.download.prss.microsoft.com/dbazure/download/stable/abc/VSCodeUserSetup-x64-1.141.0.exe",
+      name: "Node.js",
+      version: "24.20.0",
+      url: "https://nodejs.org/dist/v24.20.0/node-v24.20.0-x64.msi",
     },
     excerpt,
-    "VS Code",
+    "Node.js LTS",
   ).ok,
   true,
 );
@@ -46,12 +46,12 @@ assert.equal(
 assert.equal(
   validateExtraction(
     {
-      name: "Visual Studio Code",
-      version: "1.141.0",
+      name: "Node.js",
+      version: "24.20.0",
       url: "http://evil.example/x.exe",
     },
     excerpt,
-    "VS Code",
+    "Node.js LTS",
   ).ok,
   false,
 );
@@ -59,12 +59,12 @@ assert.equal(
 assert.equal(
   validateExtraction(
     {
-      name: "Visual Studio Code",
-      version: "1.141.0",
-      url: "https://evil.example/fake-vscode.exe",
+      name: "Node.js",
+      version: "24.20.0",
+      url: "https://evil.example/fake-node.msi",
     },
     excerpt,
-    "VS Code",
+    "Node.js LTS",
   ).ok,
   false,
 );
@@ -72,21 +72,21 @@ assert.equal(
 assert.equal(
   validateExtraction(
     {
-      name: "Visual Studio Code",
+      name: "Node.js",
       version: "9.9.9",
-      url: "https://vscode.download.prss.microsoft.com/dbazure/download/stable/abc/VSCodeUserSetup-x64-1.141.0.exe",
+      url: "https://nodejs.org/dist/v24.20.0/node-v24.20.0-x64.msi",
     },
     excerpt,
-    "VS Code",
+    "Node.js LTS",
   ).ok,
   false,
 );
 
 assert.equal(
   validateExtraction(
-    { name: "", version: "1.141.0", url: "https://example.com/a.exe" },
+    { name: "", version: "24.20.0", url: "https://example.com/a.exe" },
     excerpt,
-    "VS Code",
+    "Node.js LTS",
   ).ok,
   false,
 );

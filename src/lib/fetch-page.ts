@@ -1,11 +1,12 @@
+import { WINGET_MANIFESTS_API, type ProductConfig } from "./products";
+
 const FETCH_TIMEOUT_MS = 15_000;
 const MAX_BYTES = 512_000;
 const EXCERPT_CHARS = 40_000;
+const EOL_CHARS = 6_000;
+const WINGET_MAX_DEPTH = 3;
 const USER_AGENT =
   "AI-Patch-Crawler-PoC/0.1 (+https://localhost; polite research bot)";
-
-const WINGET_CHROME_API =
-  "https://api.github.com/repos/microsoft/winget-pkgs/contents/manifests/g/Google/Chrome";
 
 export type FetchedExcerpt = {
   url: string;
@@ -22,21 +23,9 @@ function stripHtmlNoise(html: string): string {
     .trim();
 }
 
-function countHttpsLinks(text: string): number {
-  const matches = text.match(/https:\/\/[^\s"'<>]+/gi);
-  return matches?.length ?? 0;
-}
-
-function looksDownloadRich(text: string): boolean {
-  return (
-    /\.exe\b/i.test(text) ||
-    /\.msi\b/i.test(text) ||
-    /InstallerUrl:/i.test(text) ||
-    /vscode\.download\.prss\.microsoft\.com/i.test(text) ||
-    /update\.code\.visualstudio\.com/i.test(text) ||
-    /dl\.google\.com/i.test(text) ||
-    /win32-x64/i.test(text)
-  );
+/** True when the text contains at least one absolute https .exe/.msi installer URL. */
+function hasInstallerUrl(text: string): boolean {
+  return /https:\/\/[^\s"'<>]+\.(exe|msi)\b/i.test(text);
 }
 
 async function fetchRaw(url: string): Promise<FetchedExcerpt> {
@@ -98,64 +87,66 @@ async function fetchRaw(url: string): Promise<FetchedExcerpt> {
 }
 
 /**
- * Chrome marketing pages rarely embed installer URLs. Resolve the latest
- * winget Google.Chrome installer manifest (contains dl.google.com URLs).
+ * Reduce endoflife.date JSON to "cycle X: eol DATE" lines. Its "latest" version
+ * fields can be newer than any installer we fetched, which tempts the LLM.
  */
-async function fetchChromeWingetInstallerYaml(): Promise<FetchedExcerpt> {
-  const index = await fetchRaw(WINGET_CHROME_API);
-  let entries: Array<{ name?: string; type?: string }> = [];
+function compactEolJson(text: string): string {
   try {
-    entries = JSON.parse(index.excerpt) as Array<{
-      name?: string;
-      type?: string;
-    }>;
+    const rows = JSON.parse(text) as Array<{ cycle?: unknown; eol?: unknown }>;
+    return rows.map((r) => `cycle ${r.cycle}: eol ${r.eol}`).join("\n");
   } catch {
-    throw new Error("Chrome winget index was not JSON");
+    return text;
   }
-
-  const versions = entries
-    .filter((e) => e.type === "dir" && typeof e.name === "string")
-    .map((e) => e.name as string)
-    .filter((name) => /^\d+\./.test(name))
-    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-
-  const latest = versions.at(-1);
-  if (!latest) {
-    throw new Error("No versioned Chrome winget manifests found");
-  }
-
-  const dirUrl = `${WINGET_CHROME_API}/${latest}`;
-  const dirListing = await fetchRaw(dirUrl);
-  let files: Array<{ name?: string; download_url?: string }> = [];
-  try {
-    files = JSON.parse(dirListing.excerpt) as Array<{
-      name?: string;
-      download_url?: string;
-    }>;
-  } catch {
-    throw new Error("Chrome winget version dir was not JSON");
-  }
-
-  const installer = files.find((f) =>
-    /installer\.ya?ml$/i.test(f.name ?? ""),
-  );
-  if (!installer?.download_url) {
-    throw new Error(`No installer.yaml for Chrome ${latest}`);
-  }
-
-  const yaml = await fetchRaw(installer.download_url);
-  return {
-    url: installer.download_url,
-    excerpt: yaml.excerpt,
-    contentType: yaml.contentType,
-  };
 }
 
-async function fetchFallback(
+type WingetEntry = { name?: string; type?: string; download_url?: string };
+
+/**
+ * Vendor download pages rarely embed full installer URLs. Resolve the latest
+ * winget installer manifest under a package dir, descending into the highest
+ * numeric subdirectory (e.g. Python/Python/3 → 14 → 3.14.7) until one is found.
+ */
+async function fetchWingetInstallerYaml(
+  dirUrl: string,
+  depth = 0,
+): Promise<FetchedExcerpt> {
+  const listing = await fetchRaw(dirUrl);
+  let entries: WingetEntry[] = [];
+  try {
+    entries = JSON.parse(listing.excerpt) as WingetEntry[];
+  } catch {
+    throw new Error(`Winget listing was not JSON: ${dirUrl}`);
+  }
+
+  const installer = entries.find(
+    (e) => e.type === "file" && /installer\.ya?ml$/i.test(e.name ?? ""),
+  );
+  if (installer?.download_url) {
+    const yaml = await fetchRaw(installer.download_url);
+    return {
+      url: installer.download_url,
+      excerpt: yaml.excerpt,
+      contentType: yaml.contentType,
+    };
+  }
+
+  const latest = entries
+    .filter((e) => e.type === "dir" && /^\d+(\.\d+)*$/.test(e.name ?? ""))
+    .map((e) => e.name as string)
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+    .at(-1);
+
+  if (!latest || depth >= WINGET_MAX_DEPTH) {
+    throw new Error(`No winget installer manifest found under ${dirUrl}`);
+  }
+  return fetchWingetInstallerYaml(`${dirUrl}/${latest}`, depth + 1);
+}
+
+async function fetchSource(
   fallbackUrl: string,
 ): Promise<FetchedExcerpt> {
-  if (fallbackUrl.startsWith(WINGET_CHROME_API)) {
-    return fetchChromeWingetInstallerYaml();
+  if (fallbackUrl.startsWith(WINGET_MANIFESTS_API)) {
+    return fetchWingetInstallerYaml(fallbackUrl);
   }
   return fetchRaw(fallbackUrl);
 }
@@ -163,23 +154,23 @@ async function fetchFallback(
 /**
  * Fetch primary seed page. Vendor marketing pages are often JS-heavy, so also
  * pull the configured fallback when the primary excerpt lacks download-like URLs.
+ * When an EOL source is configured, append it so EOS dates appear verbatim.
  */
 export async function fetchProductExcerpt(
-  seedUrl: string,
-  fallbackUrl?: string,
+  product: ProductConfig,
 ): Promise<FetchedExcerpt> {
-  const primary = await fetchRaw(seedUrl);
+  const { seedUrl, fallbackUrl, eolUrl } = product;
+  const primary = await fetchSource(seedUrl);
   let combined = primary.excerpt;
   let usedUrl = primary.url;
 
-  const sparse =
-    countHttpsLinks(combined) < 2 || !looksDownloadRich(combined);
+  const sparse = !hasInstallerUrl(combined);
 
   if (fallbackUrl && sparse) {
     console.log(
       `[fetch] primary sparse/no installers; fetching fallback ${fallbackUrl}`,
     );
-    const secondary = await fetchFallback(fallbackUrl);
+    const secondary = await fetchSource(fallbackUrl);
     // Prefer fallback (installer-rich) content; keep a short primary prefix only.
     const header = `--- PRIMARY (${primary.url}) ---\n`;
     const mid = `\n\n--- FALLBACK SOURCE (${secondary.url}) ---\n\n`;
@@ -192,6 +183,13 @@ export async function fetchProductExcerpt(
       mid +
       secondary.excerpt.slice(0, fallbackShare);
     usedUrl = `${primary.url} + ${secondary.url}`;
+  }
+
+  if (eolUrl) {
+    const eol = await fetchRaw(eolUrl);
+    const section = `\n\n--- END-OF-LIFE DATES (${eol.url}) ---\n\n${compactEolJson(eol.excerpt).slice(0, EOL_CHARS)}`;
+    combined = combined.slice(0, EXCERPT_CHARS - section.length) + section;
+    usedUrl = `${usedUrl} + ${eol.url}`;
   }
 
   return {

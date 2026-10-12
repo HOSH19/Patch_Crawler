@@ -1,34 +1,46 @@
-export type ProductId = "vscode" | "chrome";
+export type ProductId = "nodejs" | "python" | "chrome";
+
+export const WINGET_MANIFESTS_API =
+  "https://api.github.com/repos/microsoft/winget-pkgs/contents/manifests";
 
 export type ProductConfig = {
   id: ProductId;
   label: string;
-  /** Primary official page to fetch */
+  /** Primary official page (or winget manifests dir) to fetch */
   seedUrl: string;
   /** Optional secondary source if primary HTML lacks download links */
   fallbackUrl?: string;
+  /** Optional endoflife.date API URL; always appended so EOS dates are verbatim in the excerpt */
+  eolUrl?: string;
   /** Hint baked into the LLM prompt */
   targetHint: string;
 };
 
 export const PRODUCTS: Record<ProductId, ProductConfig> = {
-  vscode: {
-    id: "vscode",
-    label: "VS Code",
-    seedUrl: "https://code.visualstudio.com/Download",
-    // Official update JSON includes the Windows x64 User .exe URL as text
-    fallbackUrl:
-      "https://update.code.visualstudio.com/api/update/win32-x64-user/stable/latest",
+  nodejs: {
+    id: "nodejs",
+    label: "Node.js LTS",
+    // nodejs.org/en/download is client-rendered and advertises versions with no
+    // installer URL in the HTML; winget's LTS manifest has the nodejs.org/dist URL.
+    seedUrl: `${WINGET_MANIFESTS_API}/o/OpenJS/NodeJS/LTS`,
+    eolUrl: "https://endoflife.date/api/nodejs.json",
     targetHint:
-      "Latest stable Visual Studio Code Windows x64 User or System installer (.exe), preferably a direct CDN/update download link.",
+      "Latest Node.js LTS Windows x64 installer (.msi) from nodejs.org/dist. endOfShelf is the eol date of the matching release cycle (major version, e.g. cycle 24 for 24.x).",
+  },
+  python: {
+    id: "python",
+    label: "Python",
+    seedUrl: "https://www.python.org/downloads/windows/",
+    fallbackUrl: `${WINGET_MANIFESTS_API}/p/Python/Python/3`,
+    eolUrl: "https://endoflife.date/api/python.json",
+    targetHint:
+      "Latest stable Python 3 Windows x64 (amd64) installer (.exe) from python.org/ftp. endOfShelf is the eol date of the matching release cycle (major.minor, e.g. cycle 3.14 for 3.14.x).",
   },
   chrome: {
     id: "chrome",
     label: "Chrome",
     seedUrl: "https://www.google.com/chrome/",
-    // Winget package index — resolved further in fetch-page to the installer YAML
-    fallbackUrl:
-      "https://api.github.com/repos/microsoft/winget-pkgs/contents/manifests/g/Google/Chrome",
+    fallbackUrl: `${WINGET_MANIFESTS_API}/g/Google/Chrome`,
     targetHint:
       "Latest stable Google Chrome Windows x64 offline/enterprise installer URL (dl.google.com .msi or .exe).",
   },

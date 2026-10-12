@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import { cacheGet, cacheSet } from "@/lib/cache";
 import { fetchProductExcerpt } from "@/lib/fetch-page";
 import { extractDownloadUrl } from "@/lib/llm-extract";
-import { isProductId, PRODUCTS, type ProductId } from "@/lib/products";
+import {
+  isProductId,
+  PRODUCT_IDS,
+  PRODUCTS,
+  type ProductId,
+} from "@/lib/products";
 import { validateExtraction } from "@/lib/validate";
 
 export const runtime = "nodejs";
@@ -43,7 +48,9 @@ export async function POST(request: Request) {
 
   if (!isProductId(productId)) {
     return NextResponse.json(
-      { error: "product must be 'vscode' or 'chrome'" } satisfies ErrorBody,
+      {
+        error: `product must be one of: ${PRODUCT_IDS.map((id) => `'${id}'`).join(", ")}`,
+      } satisfies ErrorBody,
       { status: 400 },
     );
   }
@@ -59,10 +66,7 @@ export async function POST(request: Request) {
 
   try {
     console.log(`[api] fetching seed for ${productId}: ${product.seedUrl}`);
-    const fetched = await fetchProductExcerpt(
-      product.seedUrl,
-      product.fallbackUrl,
-    );
+    const fetched = await fetchProductExcerpt(product);
     console.log(
       `[api] excerpt ready (${fetched.excerpt.length} chars) from ${fetched.url}`,
     );
