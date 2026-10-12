@@ -6,6 +6,7 @@ import { isProductId, PRODUCTS, type ProductId } from "@/lib/products";
 import { validateExtraction } from "@/lib/validate";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 type SuccessBody = {
   name: string;
